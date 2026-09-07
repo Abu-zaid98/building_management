@@ -20,6 +20,7 @@ const ResidentForm: React.FC<ResidentFormProps> = ({ initialData, onSubmit, onCa
     secondaryPhone: '',
     email: '',
     nationality: 'فلسطيني',
+    numberOfResidents: 1,
     units: [],
     notes: '',
   });
@@ -37,6 +38,7 @@ const ResidentForm: React.FC<ResidentFormProps> = ({ initialData, onSubmit, onCa
         secondaryPhone: initialData.secondaryPhone || '',
         email: initialData.email || '',
         nationality: initialData.nationality || 'فلسطيني',
+        numberOfResidents: initialData.numberOfResidents ?? 1,
         units: initialData.units || [],
         notes: initialData.notes || '',
       });
@@ -143,14 +145,29 @@ const ResidentForm: React.FC<ResidentFormProps> = ({ initialData, onSubmit, onCa
         </div>
       </div>
 
-      <div className="form-group">
-        <label className="form-label">الجنسية</label>
-        <input
-          type="text"
-          className="form-input"
-          value={formData.nationality}
-          onChange={e => setFormData({ ...formData, nationality: e.target.value })}
-        />
+      <div className="grid-2">
+        <div className="form-group">
+          <label className="form-label">الجنسية</label>
+          <input
+            type="text"
+            className="form-input"
+            value={formData.nationality}
+            onChange={e => setFormData({ ...formData, nationality: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">عدد الأفراد في الشقة</label>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            className="form-input"
+            placeholder="مثال: 4"
+            value={formData.numberOfResidents ?? 1}
+            onChange={e => setFormData({ ...formData, numberOfResidents: Number(e.target.value) })}
+          />
+        </div>
       </div>
 
       {/* Unit Association */}

@@ -73,6 +73,7 @@ export interface Resident {
   secondaryPhone?: string;
   email: string;
   nationality: string;
+  numberOfResidents?: number;  // عدد الأفراد في الشقة
   units: ResidentUnit[];
   notes?: string;
   createdAt: Date;
@@ -169,14 +170,22 @@ export interface Announcement {
 export type AnnouncementFormData = Omit<Announcement, 'id' | 'createdAt' | 'createdBy'>;
 
 // ===== بيانات العمارة =====
+export interface CouncilMember {
+  name: string;
+  role: string;      // منصبه: رئيس، أمين سر، عضو، أمين صندوق، إلخ
+  phone: string;
+  email?: string;
+}
+
 export interface BuildingInfo {
   buildingName: string;
   address: string;
   phone: string;
   email: string;
-  managementCouncil: string;
+  managementCouncil: string;  // نص قديم للتوافق
   councilPhone: string;
   councilEmail: string;
+  councilMembers?: CouncilMember[];  // قائمة أعضاء مجلس الإدارة
   logo?: string;
   established?: string;
   description?: string;

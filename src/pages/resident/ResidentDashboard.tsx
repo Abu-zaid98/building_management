@@ -6,7 +6,7 @@ import { getUnits } from '../../services/units';
 import { getInvoices } from '../../services/invoices';
 import { useBuildingInfo } from '../../services/buildingInfo';
 import type { Invoice, Resident, Unit } from '../../types';
-import { FiHome, FiFileText, FiDollarSign, FiMessageSquare, FiBell, FiUser, FiCompass, FiMaximize2, FiLayers } from 'react-icons/fi';
+import { FiHome, FiFileText, FiDollarSign, FiMessageSquare, FiBell, FiUser, FiCompass, FiMaximize2, FiLayers, FiPhone, FiMail } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 
 const ResidentDashboard: React.FC = () => {
@@ -406,6 +406,126 @@ const ResidentDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Council Members Contact Section */}
+      {buildingInfo?.councilMembers && buildingInfo.councilMembers.length > 0 && (
+        <div className="card" style={{ marginTop: 24 }}>
+          <div className="card-header">
+            <div>
+              <div className="card-title">🏛️ مجلس إدارة العمارة - للتواصل</div>
+              <div className="card-subtitle">أعضاء مجلس الإدارة وأرقام التواصل المباشر</div>
+            </div>
+          </div>
+          <div className="card-body">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                gap: 14,
+              }}
+            >
+              {buildingInfo.councilMembers.map((member, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    border: '1.5px solid var(--color-gray-200)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    transition: 'box-shadow 0.2s, border-color 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)';
+                    (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-primary-300, #93c5fd)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
+                    (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-gray-200)';
+                  }}
+                >
+                  {/* Avatar + Name */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: '50%',
+                        background: `hsl(${(idx * 47 + 200) % 360}, 65%, 52%)`,
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: 18,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {member.name ? member.name[0] : '؟'}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-gray-900)', lineHeight: 1.3 }}>
+                        {member.name || 'غير مسمى'}
+                      </div>
+                      <span
+                        className="badge badge-blue"
+                        style={{ fontSize: 10, padding: '2px 7px', marginTop: 4, display: 'inline-block' }}
+                      >
+                        {member.role}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                    {member.phone && (
+                      <a
+                        href={`tel:${member.phone}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          color: 'var(--color-primary-dark)',
+                          textDecoration: 'none',
+                          fontWeight: 600,
+                          padding: '7px 10px',
+                          background: '#eff6ff',
+                          borderRadius: 'var(--radius-md)',
+                        }}
+                      >
+                        <FiPhone size={14} /> {member.phone}
+                      </a>
+                    )}
+                    {member.email && (
+                      <a
+                        href={`mailto:${member.email}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          color: 'var(--color-gray-600)',
+                          textDecoration: 'none',
+                          fontSize: 12,
+                          padding: '5px 10px',
+                          background: 'var(--color-gray-100)',
+                          borderRadius: 'var(--radius-md)',
+                        }}
+                      >
+                        <FiMail size={13} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {member.email}
+                        </span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
