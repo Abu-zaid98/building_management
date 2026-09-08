@@ -1,11 +1,31 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
 import './styles/globals.css';
+
+// Root redirector based on current user session
+const RootRedirect: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <PageLoader />;
+  }
+
+  if (user) {
+    if (user.role === 'admin') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    if (user.role === 'resident') {
+      return <Navigate to="/resident/dashboard" replace />;
+    }
+  }
+
+  return <Navigate to="/login" replace />;
+};
 
 // ===== Pages (Lazy Loaded) =====
 const Login = lazy(() => import('./pages/Login'));
@@ -70,7 +90,7 @@ const App: React.FC = () => {
             {/* ===== Public Routes ===== */}
             <Route path="/login" element={<Login />} />
             <Route path="/setup" element={<CreateAdmin />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<RootRedirect />} />
 
             {/* ===== Admin Routes ===== */}
             <Route element={<ProtectedRoute allowedRole="admin" />}>
@@ -106,7 +126,7 @@ const App: React.FC = () => {
             </Route>
 
             {/* 404 */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<RootRedirect />} />
           </Routes>
         </Suspense>
 

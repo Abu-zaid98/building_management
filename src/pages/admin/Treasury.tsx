@@ -70,6 +70,7 @@ const Treasury: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>('all'); // 'all' or 'YYYY-MM'
   const [selectedType, setSelectedType] = useState<string>('all'); // 'all' | 'income' | 'expense'
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedMethod, setSelectedMethod] = useState<string>('all'); // 'all' | 'نقد' | 'تحويل' | 'شيك'
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals
@@ -136,6 +137,41 @@ const Treasury: React.FC = () => {
 
   const allTimeBalance = allTimeIncome - allTimeExpense;
 
+  // ===== تفصيل وحسابات صندوق النقد (الكاش) - تراكمي كلي =====
+  const allTimeCashIncome = useMemo(() => {
+    return transactions.filter(t => t.type === 'income' && t.paymentMethod === 'نقد').reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions]);
+
+  const allTimeCashExpense = useMemo(() => {
+    return transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'نقد').reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions]);
+
+  // كم متبقي في صندوق الكاش
+  const allTimeCashBalance = allTimeCashIncome - allTimeCashExpense;
+
+  // ===== تفصيل وحسابات صندوق التحويل البنكي (الإلكتروني) - تراكمي كلي =====
+  const allTimeTransferIncome = useMemo(() => {
+    return transactions.filter(t => t.type === 'income' && t.paymentMethod === 'تحويل').reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions]);
+
+  const allTimeTransferExpense = useMemo(() => {
+    return transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'تحويل').reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions]);
+
+  // كم متبقي في صندوق التحويل البنكي
+  const allTimeTransferBalance = allTimeTransferIncome - allTimeTransferExpense;
+
+  // ===== حسابات الشيكات (إن وجدت) =====
+  const allTimeChequeIncome = useMemo(() => {
+    return transactions.filter(t => t.type === 'income' && t.paymentMethod === 'شيك').reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions]);
+
+  const allTimeChequeExpense = useMemo(() => {
+    return transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'شيك').reduce((acc, t) => acc + t.amount, 0);
+  }, [transactions]);
+
+  const allTimeChequeBalance = allTimeChequeIncome - allTimeChequeExpense;
+
   // Selected Period Stats
   const periodTransactions = useMemo(() => {
     if (selectedMonth === 'all') return transactions;
@@ -152,20 +188,42 @@ const Treasury: React.FC = () => {
 
   const periodNet = periodIncome - periodExpense;
 
+  // Selected Period Cash & Transfer Breakdown
+  const periodCashIncome = useMemo(() => {
+    return periodTransactions.filter(t => t.type === 'income' && t.paymentMethod === 'نقد').reduce((acc, t) => acc + t.amount, 0);
+  }, [periodTransactions]);
+
+  const periodCashExpense = useMemo(() => {
+    return periodTransactions.filter(t => t.type === 'expense' && t.paymentMethod === 'نقد').reduce((acc, t) => acc + t.amount, 0);
+  }, [periodTransactions]);
+
+  const periodCashNet = periodCashIncome - periodCashExpense;
+
+  const periodTransferIncome = useMemo(() => {
+    return periodTransactions.filter(t => t.type === 'income' && t.paymentMethod === 'تحويل').reduce((acc, t) => acc + t.amount, 0);
+  }, [periodTransactions]);
+
+  const periodTransferExpense = useMemo(() => {
+    return periodTransactions.filter(t => t.type === 'expense' && t.paymentMethod === 'تحويل').reduce((acc, t) => acc + t.amount, 0);
+  }, [periodTransactions]);
+
+  const periodTransferNet = periodTransferIncome - periodTransferExpense;
+
   // Filtered transactions for view
   const filteredTransactions = useMemo(() => {
     return periodTransactions.filter(t => {
       const matchesType = selectedType === 'all' || t.type === selectedType;
       const matchesCat = selectedCategory === 'all' || t.category === selectedCategory;
+      const matchesMethod = selectedMethod === 'all' || t.paymentMethod === selectedMethod;
       const matchesSearch =
         t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (t.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (t.paidToOrReceivedFrom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (t.notes || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesType && matchesCat && matchesSearch;
+      return matchesType && matchesCat && matchesMethod && matchesSearch;
     });
-  }, [periodTransactions, selectedType, selectedCategory, searchTerm]);
+  }, [periodTransactions, selectedType, selectedCategory, selectedMethod, searchTerm]);
 
   // Monthly breakdown for Council overview
   const monthlySummaryList = useMemo(() => {
@@ -432,6 +490,211 @@ const Treasury: React.FC = () => {
             </div>
           </div>
 
+          {/* ===== 🌟 قسم التمييز بين صندوق الكاش وصندوق التحويل البنكي ===== */}
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: 'var(--color-gray-900)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>💰</span> رصيد الصناديق المستقلة (الكاش والتحويل البنكي)
+                </h3>
+                <span style={{ fontSize: 13, color: 'var(--color-gray-500)' }}>
+                  توزيع السيولة النقدية المتوفرة باليد مقابل الأرصدة المودعة في الحساب البنكي
+                </span>
+              </div>
+
+              {selectedMethod !== 'all' && (
+                <button
+                  onClick={() => setSelectedMethod('all')}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--color-primary)', fontWeight: 800 }}
+                >
+                  🔄 إظهار كافة الصناديق
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18 }}>
+              {/* 💵 1. صندوق النقد (الكاش) */}
+              <div
+                className="stat-card"
+                style={{
+                  padding: '24px',
+                  borderRadius: 'var(--radius-lg)',
+                  borderRight: '5px solid #059669',
+                  background: 'linear-gradient(135deg, #FFFFFF 0%, #F0FDF4 100%)',
+                  boxShadow: selectedMethod === 'نقد' ? '0 0 0 2.5px #059669, 0 10px 25px rgba(5, 150, 105, 0.15)' : undefined,
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease'
+                }}
+                onClick={() => setSelectedMethod(prev => prev === 'نقد' ? 'all' : 'نقد')}
+                title="انقر لتصفية وعرض حركات الكاش فقط"
+              >
+                <div className="stat-icon" style={{ background: '#DCFCE7', color: '#059669', width: 54, height: 54, borderRadius: 14 }}>
+                  <span style={{ fontSize: 26 }}>💵</span>
+                </div>
+                <div className="stat-info" style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#065F46' }}>صندوق النقد (الكاش)</span>
+                    <span className="badge badge-green" style={{ fontSize: 11, padding: '3px 8px' }}>
+                      {selectedMethod === 'نقد' ? 'محدد حالياً' : 'نقد باليد'}
+                    </span>
+                  </div>
+
+                  <div className="stat-value" style={{ fontSize: 28, fontWeight: 900, color: allTimeCashBalance >= 0 ? '#059669' : '#DC2626' }}>
+                    {allTimeCashBalance.toLocaleString()} ₪
+                  </div>
+                  
+                  <div style={{ fontSize: 12, fontWeight: 800, color: allTimeCashBalance >= 0 ? '#15803D' : '#DC2626', marginTop: 2 }}>
+                    {allTimeCashBalance >= 0 ? '✓ المتبقي الفعلي المتاح نقداً' : '⚠️ عجز نقدي في صندوق الكاش'}
+                  </div>
+
+                  <div style={{
+                    marginTop: 14,
+                    paddingTop: 12,
+                    borderTop: '1px dashed #BBF7D0',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8,
+                    fontSize: 12
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--color-gray-500)', display: 'block' }}>مقبوضات كاش:</span>
+                      <strong style={{ color: '#059669', fontWeight: 800 }}>+{allTimeCashIncome.toLocaleString()} ₪</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--color-gray-500)', display: 'block' }}>مصروفات كاش:</span>
+                      <strong style={{ color: '#DC2626', fontWeight: 800 }}>-{allTimeCashExpense.toLocaleString()} ₪</strong>
+                    </div>
+                  </div>
+
+                  {selectedMonth !== 'all' && (
+                    <div style={{ marginTop: 8, fontSize: 11.5, color: '#047857', background: '#DCFCE7', padding: '4px 8px', borderRadius: 6, textAlign: 'center', fontWeight: 700 }}>
+                      صافي شهر ({selectedMonth}): {periodCashNet >= 0 ? `+${periodCashNet.toLocaleString()} ₪ فائض` : `${periodCashNet.toLocaleString()} ₪ عجز`}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 🏦 2. صندوق التحويل البنكي (الإلكتروني) */}
+              <div
+                className="stat-card"
+                style={{
+                  padding: '24px',
+                  borderRadius: 'var(--radius-lg)',
+                  borderRight: '5px solid #2563EB',
+                  background: 'linear-gradient(135deg, #FFFFFF 0%, #EFF6FF 100%)',
+                  boxShadow: selectedMethod === 'تحويل' ? '0 0 0 2.5px #2563EB, 0 10px 25px rgba(37, 99, 235, 0.15)' : undefined,
+                  cursor: 'pointer',
+                  transition: 'all 0.25s ease'
+                }}
+                onClick={() => setSelectedMethod(prev => prev === 'تحويل' ? 'all' : 'تحويل')}
+                title="انقر لتصفية وعرض حركات التحويل فقط"
+              >
+                <div className="stat-icon" style={{ background: '#DBEAFE', color: '#2563EB', width: 54, height: 54, borderRadius: 14 }}>
+                  <span style={{ fontSize: 26 }}>🏦</span>
+                </div>
+                <div className="stat-info" style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#1E40AF' }}>صندوق التحويل البنكي</span>
+                    <span className="badge badge-blue" style={{ fontSize: 11, padding: '3px 8px' }}>
+                      {selectedMethod === 'تحويل' ? 'محدد حالياً' : 'حساب بنكي'}
+                    </span>
+                  </div>
+
+                  <div className="stat-value" style={{ fontSize: 28, fontWeight: 900, color: allTimeTransferBalance >= 0 ? '#2563EB' : '#DC2626' }}>
+                    {allTimeTransferBalance.toLocaleString()} ₪
+                  </div>
+
+                  <div style={{ fontSize: 12, fontWeight: 800, color: allTimeTransferBalance >= 0 ? '#1D4ED8' : '#DC2626', marginTop: 2 }}>
+                    {allTimeTransferBalance >= 0 ? '✓ المتبقي المتوفر في الحساب البنكي' : '⚠️ عجز في حساب التحويل'}
+                  </div>
+
+                  <div style={{
+                    marginTop: 14,
+                    paddingTop: 12,
+                    borderTop: '1px dashed #BFDBFE',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8,
+                    fontSize: 12
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--color-gray-500)', display: 'block' }}>مقبوضات تحويل:</span>
+                      <strong style={{ color: '#2563EB', fontWeight: 800 }}>+{allTimeTransferIncome.toLocaleString()} ₪</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--color-gray-500)', display: 'block' }}>مصروفات تحويل:</span>
+                      <strong style={{ color: '#DC2626', fontWeight: 800 }}>-{allTimeTransferExpense.toLocaleString()} ₪</strong>
+                    </div>
+                  </div>
+
+                  {selectedMonth !== 'all' && (
+                    <div style={{ marginTop: 8, fontSize: 11.5, color: '#1E40AF', background: '#DBEAFE', padding: '4px 8px', borderRadius: 6, textAlign: 'center', fontWeight: 700 }}>
+                      صافي شهر ({selectedMonth}): {periodTransferNet >= 0 ? `+${periodTransferNet.toLocaleString()} ₪ فائض` : `${periodTransferNet.toLocaleString()} ₪ عجز`}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 📝 3. شيكات مصرفية (تظهر إن وجدت حركات شيكات) */}
+              {(allTimeChequeIncome > 0 || allTimeChequeExpense > 0) && (
+                <div
+                  className="stat-card"
+                  style={{
+                    padding: '24px',
+                    borderRadius: 'var(--radius-lg)',
+                    borderRight: '5px solid #7C3AED',
+                    background: 'linear-gradient(135deg, #FFFFFF 0%, #F5F3FF 100%)',
+                    boxShadow: selectedMethod === 'شيك' ? '0 0 0 2.5px #7C3AED, 0 10px 25px rgba(124, 58, 237, 0.15)' : undefined,
+                    cursor: 'pointer',
+                    transition: 'all 0.25s ease'
+                  }}
+                  onClick={() => setSelectedMethod(prev => prev === 'شيك' ? 'all' : 'شيك')}
+                  title="انقر لتصفية وعرض حركات الشيكات فقط"
+                >
+                  <div className="stat-icon" style={{ background: '#EDE9FE', color: '#7C3AED', width: 54, height: 54, borderRadius: 14 }}>
+                    <span style={{ fontSize: 26 }}>📝</span>
+                  </div>
+                  <div className="stat-info" style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: '#5B21B6' }}>صندوق الشيكات</span>
+                      <span className="badge badge-purple" style={{ fontSize: 11, padding: '3px 8px' }}>
+                        {selectedMethod === 'شيك' ? 'محدد حالياً' : 'شيكات'}
+                      </span>
+                    </div>
+
+                    <div className="stat-value" style={{ fontSize: 28, fontWeight: 900, color: allTimeChequeBalance >= 0 ? '#7C3AED' : '#DC2626' }}>
+                      {allTimeChequeBalance.toLocaleString()} ₪
+                    </div>
+
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#6D28D9', marginTop: 2 }}>
+                      صافي رصيد الشيكات
+                    </div>
+
+                    <div style={{
+                      marginTop: 14,
+                      paddingTop: 12,
+                      borderTop: '1px dashed #DDD6FE',
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 8,
+                      fontSize: 12
+                    }}>
+                      <div>
+                        <span style={{ color: 'var(--color-gray-500)', display: 'block' }}>شيكات واردة:</span>
+                        <strong style={{ color: '#7C3AED', fontWeight: 800 }}>+{allTimeChequeIncome.toLocaleString()} ₪</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-gray-500)', display: 'block' }}>شيكات صادرة:</span>
+                        <strong style={{ color: '#DC2626', fontWeight: 800 }}>-{allTimeChequeExpense.toLocaleString()} ₪</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Top KPI Summary Cards */}
           <div className="stats-grid" style={{ marginBottom: 28, gap: 18 }}>
             {/* Total Net Treasury Balance */}
@@ -444,7 +707,7 @@ const Treasury: React.FC = () => {
                   {allTimeBalance.toLocaleString()} ₪
                 </div>
                 <div className="stat-label" style={{ marginTop: 4 }}>
-                  <strong style={{ fontSize: 13, color: 'var(--color-gray-800)' }}>🏦 رصيد الخزينة التراكمي الحالي</strong>
+                  <strong style={{ fontSize: 13, color: 'var(--color-gray-800)' }}>🏛️ إجمالي رصيد الخزينة التراكمي (كاش + بنك)</strong>
                   <div style={{ fontSize: 11.5, color: 'var(--color-gray-500)', marginTop: 2 }}>
                     (الدخل الكلي: {allTimeIncome.toLocaleString()} ₪ - المصاريف: {allTimeExpense.toLocaleString()} ₪)
                   </div>
@@ -517,8 +780,8 @@ const Treasury: React.FC = () => {
                 </div>
               </div>
 
-              <div className="table-responsive" style={{ maxHeight: 240, overflowY: 'auto' }}>
-                <table className="table">
+              <div className="table-scroll-container" style={{ maxHeight: 280 }}>
+                <table className="table table-sticky-header" style={{ minWidth: 720 }}>
                   <thead>
                     <tr>
                       <th style={{ padding: '14px 18px' }}>الشهر</th>
@@ -648,6 +911,21 @@ const Treasury: React.FC = () => {
                   </optgroup>
                 </select>
               </div>
+
+              {/* Payment Method / Fund Box Filter */}
+              <div style={{ minWidth: 210 }}>
+                <select
+                  className="form-select"
+                  style={{ paddingBlock: 9, borderRadius: 'var(--radius-md)', fontWeight: 700 }}
+                  value={selectedMethod}
+                  onChange={e => setSelectedMethod(e.target.value)}
+                >
+                  <option value="all">🏦 كافة الصناديق (كاش وتحويل)</option>
+                  <option value="نقد">💵 صندوق الكاش (نقد فقط)</option>
+                  <option value="تحويل">🏛️ صندوق التحويل البنكي فقط</option>
+                  <option value="شيك">📝 شيكات مصرفية فقط</option>
+                </select>
+              </div>
             </div>
 
             {/* Content: Empty Search or Results */}
@@ -705,8 +983,18 @@ const Treasury: React.FC = () => {
                         <span className="badge badge-gray" style={{ fontSize: 12, padding: '4px 10px' }}>
                           📅 {t.date}
                         </span>
-                        <span className="badge badge-blue" style={{ fontSize: 12, padding: '4px 10px' }}>
-                          💳 {t.paymentMethod}
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: 12,
+                            padding: '4px 10px',
+                            fontWeight: 800,
+                            background: t.paymentMethod === 'نقد' ? '#ECFDF5' : t.paymentMethod === 'تحويل' ? '#EFF6FF' : '#F5F3FF',
+                            color: t.paymentMethod === 'نقد' ? '#065F46' : t.paymentMethod === 'تحويل' ? '#1E40AF' : '#5B21B6',
+                            border: `1px solid ${t.paymentMethod === 'نقد' ? '#A7F3D0' : t.paymentMethod === 'تحويل' ? '#BFDBFE' : '#DDD6FE'}`
+                          }}
+                        >
+                          {t.paymentMethod === 'نقد' ? '💵 كاش (صندوق النقد)' : t.paymentMethod === 'تحويل' ? '🏦 تحويل بنكي' : '📝 شيك مصرفي'}
                         </span>
                       </div>
 
@@ -801,103 +1089,142 @@ const Treasury: React.FC = () => {
                 ))}
               </div>
             ) : (
-              /* ===== 2. TABLE VIEW (Dense, structured, explicit buttons) ===== */
-              <div className="table-responsive">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th style={{ padding: '14px 16px' }}>النوع</th>
-                      <th style={{ padding: '14px 16px' }}>التاريخ</th>
-                      <th style={{ padding: '14px 16px' }}>البيان / الوصف</th>
-                      <th style={{ padding: '14px 16px' }}>البند / التصنيف</th>
-                      <th style={{ padding: '14px 16px' }}>المبلغ (₪)</th>
-                      <th style={{ padding: '14px 16px' }}>رقم الفاتورة</th>
-                      <th style={{ padding: '14px 16px' }}>الجهة</th>
-                      <th style={{ padding: '14px 16px' }}>طريقة الدفع</th>
-                      <th className="no-print" style={{ padding: '14px 16px', textAlign: 'center' }}>إجراءات البند</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredTransactions.map(t => (
-                      <tr key={t.id}>
-                        <td style={{ padding: '14px 16px' }}>
-                          <span className={`badge ${t.type === 'income' ? 'badge-green' : 'badge-red'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 800, padding: '5px 10px' }}>
-                            {t.type === 'income' ? <FiTrendingUp size={12} /> : <FiTrendingDown size={12} />}
-                            {t.type === 'income' ? 'إيراد' : 'مصروف'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', fontSize: 13, direction: 'ltr' }}>
-                          {t.date}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ fontWeight: 800, color: 'var(--color-gray-900)', fontSize: 14 }}>{t.title}</div>
-                          {t.notes && (
-                            <div style={{ fontSize: 12, color: 'var(--color-gray-500)', marginTop: 3 }}>
-                              {t.notes}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <span className="badge badge-purple" style={{ fontSize: 12, padding: '4px 8px' }}>
-                            {t.category}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 16px', fontWeight: 900, fontSize: 15, color: t.type === 'income' ? '#16A34A' : '#DC2626', whiteSpace: 'nowrap' }}>
-                          {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()} ₪
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          {t.invoiceNumber ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <FiFileText color="var(--color-primary)" size={14} />
-                              <code style={{ fontSize: 12.5, fontWeight: 700 }}>{t.invoiceNumber}</code>
-                              {t.invoiceReceiptUrl && (
-                                <a
-                                  href={t.invoiceReceiptUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="عرض المرفق"
-                                  style={{ color: 'var(--color-primary)', marginRight: 4 }}
-                                >
-                                  <FiExternalLink size={13} />
-                                </a>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--color-gray-400)', fontSize: 12 }}>بدون</span>
-                          )}
-                        </td>
-                        <td style={{ padding: '14px 16px', fontSize: 13 }}>
-                          {t.paidToOrReceivedFrom || '—'}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <span className="badge badge-blue" style={{ fontSize: 11, padding: '4px 8px' }}>
-                            {t.paymentMethod}
-                          </span>
-                        </td>
-                        <td className="no-print" style={{ padding: '14px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                            <button
-                              onClick={() => openEditModal(t)}
-                              className="btn btn-secondary btn-sm"
-                              style={{ padding: '5px 12px', fontWeight: 700 }}
-                              title="تعديل القيد"
-                            >
-                              <FiEdit2 size={13} /> تعديل
-                            </button>
-                            <button
-                              onClick={() => setDeletingTransaction(t)}
-                              className="btn btn-ghost btn-sm"
-                              style={{ color: 'var(--color-danger)', border: '1px solid #FECACA', padding: '5px 12px', fontWeight: 700 }}
-                              title="حذف القيد"
-                            >
-                              <FiTrash2 size={13} /> حذف
-                            </button>
-                          </div>
-                        </td>
+              /* ===== 2. TABLE VIEW (Dense, structured, explicit buttons with horizontal and vertical scroll) ===== */
+              <div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 10,
+                  padding: '8px 12px',
+                  background: '#F8FAFC',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-gray-200)',
+                  flexWrap: 'wrap',
+                  gap: 8
+                }}>
+                  <span style={{ fontSize: 13, color: 'var(--color-gray-700)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+                    <span style={{ fontSize: 16 }}>↔️</span> يمكنك سحب وتمرير الجدول أفقياً وعمودياً للتحكم واستعراض كافة الأعمدة والسجلات
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {selectedMethod !== 'all' && (
+                      <span className="badge badge-purple" style={{ fontSize: 11.5, padding: '3px 8px' }}>
+                        فلترة: {selectedMethod === 'نقد' ? '💵 كاش فقط' : selectedMethod === 'تحويل' ? '🏦 تحويل بنكي فقط' : '📝 شيكات فقط'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 12.5, color: 'var(--color-primary)', fontWeight: 900 }}>
+                      عدد القيود المعروضة: {filteredTransactions.length} قيد
+                    </span>
+                  </div>
+                </div>
+
+                <div className="table-scroll-container" style={{ maxHeight: 560 }}>
+                  <table className="table table-sticky-header" style={{ minWidth: 1040 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '14px 16px', width: 110 }}>النوع</th>
+                        <th style={{ padding: '14px 16px', width: 110 }}>التاريخ</th>
+                        <th style={{ padding: '14px 16px', minWidth: 220 }}>البيان / الوصف</th>
+                        <th style={{ padding: '14px 16px', width: 150 }}>البند / التصنيف</th>
+                        <th style={{ padding: '14px 16px', width: 130 }}>المبلغ (₪)</th>
+                        <th style={{ padding: '14px 16px', width: 140 }}>رقم الفاتورة</th>
+                        <th style={{ padding: '14px 16px', width: 150 }}>الجهة</th>
+                        <th style={{ padding: '14px 16px', width: 150 }}>الصندوق / طريقة الدفع</th>
+                        <th className="no-print" style={{ padding: '14px 16px', width: 140, textAlign: 'center' }}>إجراءات البند</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredTransactions.map(t => (
+                        <tr key={t.id}>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span className={`badge ${t.type === 'income' ? 'badge-green' : 'badge-red'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 800, padding: '5px 10px' }}>
+                              {t.type === 'income' ? <FiTrendingUp size={12} /> : <FiTrendingDown size={12} />}
+                              {t.type === 'income' ? 'إيراد' : 'مصروف'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', fontSize: 13, direction: 'ltr' }}>
+                            {t.date}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontWeight: 800, color: 'var(--color-gray-900)', fontSize: 14 }}>{t.title}</div>
+                            {t.notes && (
+                              <div style={{ fontSize: 12, color: 'var(--color-gray-500)', marginTop: 3 }}>
+                                {t.notes}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span className="badge badge-purple" style={{ fontSize: 12, padding: '4px 8px' }}>
+                              {t.category}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 16px', fontWeight: 900, fontSize: 15, color: t.type === 'income' ? '#16A34A' : '#DC2626', whiteSpace: 'nowrap' }}>
+                            {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString()} ₪
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            {t.invoiceNumber ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <FiFileText color="var(--color-primary)" size={14} />
+                                <code style={{ fontSize: 12.5, fontWeight: 700 }}>{t.invoiceNumber}</code>
+                                {t.invoiceReceiptUrl && (
+                                  <a
+                                    href={t.invoiceReceiptUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="عرض المرفق"
+                                    style={{ color: 'var(--color-primary)', marginRight: 4 }}
+                                  >
+                                    <FiExternalLink size={13} />
+                                  </a>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--color-gray-400)', fontSize: 12 }}>بدون</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 16px', fontSize: 13 }}>
+                            {t.paidToOrReceivedFrom || '—'}
+                          </td>
+                          <td style={{ padding: '14px 16px' }}>
+                            <span
+                              className="badge"
+                              style={{
+                                fontSize: 11.5,
+                                padding: '4px 10px',
+                                fontWeight: 800,
+                                background: t.paymentMethod === 'نقد' ? '#ECFDF5' : t.paymentMethod === 'تحويل' ? '#EFF6FF' : '#F5F3FF',
+                                color: t.paymentMethod === 'نقد' ? '#065F46' : t.paymentMethod === 'تحويل' ? '#1E40AF' : '#5B21B6',
+                                border: `1px solid ${t.paymentMethod === 'نقد' ? '#A7F3D0' : t.paymentMethod === 'تحويل' ? '#BFDBFE' : '#DDD6FE'}`
+                              }}
+                            >
+                              {t.paymentMethod === 'نقد' ? '💵 كاش' : t.paymentMethod === 'تحويل' ? '🏦 تحويل بنكي' : '📝 شيك'}
+                            </span>
+                          </td>
+                          <td className="no-print" style={{ padding: '14px 16px', whiteSpace: 'nowrap', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                              <button
+                                onClick={() => openEditModal(t)}
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '5px 12px', fontWeight: 700 }}
+                                title="تعديل القيد"
+                              >
+                                <FiEdit2 size={13} /> تعديل
+                              </button>
+                              <button
+                                onClick={() => setDeletingTransaction(t)}
+                                className="btn btn-ghost btn-sm"
+                                style={{ color: 'var(--color-danger)', border: '1px solid #FECACA', padding: '5px 12px', fontWeight: 700 }}
+                                title="حذف القيد"
+                              >
+                                <FiTrash2 size={13} /> حذف
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -1041,16 +1368,16 @@ const Treasury: React.FC = () => {
             </div>
 
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label required" style={{ fontWeight: 800, marginBottom: 6 }}>طريقة الدفع</label>
+              <label className="form-label required" style={{ fontWeight: 800, marginBottom: 6 }}>الصندوق / طريقة الدفع</label>
               <select
                 className="form-select"
-                style={{ paddingBlock: 10 }}
+                style={{ paddingBlock: 10, fontWeight: 700 }}
                 value={formData.paymentMethod}
                 onChange={e => setFormData({ ...formData, paymentMethod: e.target.value as PaymentMethod })}
               >
-                <option value="نقد">نقد (كاش)</option>
-                <option value="تحويل">تحويل بنكي / إلكتروني</option>
-                <option value="شيك">شيك مصرفي</option>
+                <option value="نقد">💵 نقد (صندوق الكاش)</option>
+                <option value="تحويل">🏦 تحويل بنكي / إلكتروني (صندوق التحويل)</option>
+                <option value="شيك">📝 شيك مصرفي</option>
               </select>
             </div>
           </div>

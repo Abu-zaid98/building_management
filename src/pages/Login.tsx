@@ -1,24 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginAdmin, loginResident } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { FiHome, FiUser, FiLock, FiEye, FiEyeOff, FiLoader, FiShield, FiCheckCircle } from 'react-icons/fi';
 
 type LoginTab = 'admin' | 'resident';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
   const [activeTab, setActiveTab] = useState<LoginTab>('resident');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+
+  // Check if redirected here due to 15-minute session timeout
+  useEffect(() => {
+    if (sessionStorage.getItem('session_timeout') === 'true') {
+      setInfoMessage('تم إنهاء الجلسة تلقائياً لمرور أكثر من 15 دقيقة بدون نشاط أو بعد إغلاق التاب. يرجى تسجيل الدخول مجدداً للمتابعة.');
+      sessionStorage.removeItem('session_timeout');
+    }
+  }, []);
+
+  // Remember me toggle (persisted in localStorage)
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    const saved = localStorage.getItem('building_mgmt_remember_me');
+    return saved !== null ? saved === 'true' : true;
+  });
 
   // Admin form
-  const [adminEmail, setAdminEmail] = useState('');
+  const [adminEmail, setAdminEmail] = useState(() => {
+    return localStorage.getItem('building_mgmt_saved_admin_email') || '';
+  });
   const [adminPassword, setAdminPassword] = useState('');
 
   // Resident form
-  const [residentId, setResidentId] = useState('');
+  const [residentId, setResidentId] = useState(() => {
+    return localStorage.getItem('building_mgmt_saved_resident_id') || '';
+  });
   const [residentPassword, setResidentPassword] = useState('');
+
+  // Redirect immediately if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (user.role === 'resident') {
+        navigate('/resident/dashboard', { replace: true });
+      }
+    }
+  }, [user, authLoading, navigate]);
 
   const handleTabChange = (tab: LoginTab) => {
     setActiveTab(tab);
@@ -35,8 +68,16 @@ const Login: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      await loginAdmin(adminEmail, adminPassword);
-      navigate('/admin/dashboard');
+      if (rememberMe) {
+        localStorage.setItem('building_mgmt_remember_me', 'true');
+        localStorage.setItem('building_mgmt_saved_admin_email', adminEmail.trim());
+      } else {
+        localStorage.setItem('building_mgmt_remember_me', 'false');
+        localStorage.removeItem('building_mgmt_saved_admin_email');
+      }
+
+      await loginAdmin(adminEmail.trim(), adminPassword, rememberMe);
+      navigate('/admin/dashboard', { replace: true });
     } catch (err: unknown) {
       const error = err as { code?: string; message?: string };
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -58,8 +99,16 @@ const Login: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      await loginResident(residentId, residentPassword);
-      navigate('/resident/dashboard');
+      if (rememberMe) {
+        localStorage.setItem('building_mgmt_remember_me', 'true');
+        localStorage.setItem('building_mgmt_saved_resident_id', residentId.trim());
+      } else {
+        localStorage.setItem('building_mgmt_remember_me', 'false');
+        localStorage.removeItem('building_mgmt_saved_resident_id');
+      }
+
+      await loginResident(residentId.trim(), residentPassword, rememberMe);
+      navigate('/resident/dashboard', { replace: true });
     } catch (err: unknown) {
       const error = err as { code?: string; message?: string };
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -71,6 +120,14 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="login-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
 
   return (
     <div className="login-page">
@@ -163,6 +220,14 @@ const Login: React.FC = () => {
             </button>
           </div>
 
+          {/* Info Alert Box (Session Timeout) */}
+          {infoMessage && (
+            <div className="login-alert-box" style={{ background: '#EFF6FF', borderColor: '#BFDBFE', color: '#1E40AF', marginBottom: 14 }} role="status">
+              <div className="alert-icon">⏱️</div>
+              <div className="alert-text">{infoMessage}</div>
+            </div>
+          )}
+
           {/* Error Alert Box */}
           {error && (
             <div className="login-alert-box" role="alert">
@@ -220,6 +285,18 @@ const Login: React.FC = () => {
                     {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                   </button>
                 </div>
+              </div>
+
+              <div className="luxury-remember-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, marginTop: 4 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: 13.5, color: 'var(--color-gray-700)', userSelect: 'none', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                    style={{ width: 17, height: 17, accentColor: 'var(--color-primary)', cursor: 'pointer', borderRadius: 4 }}
+                  />
+                  <span>تذكرني على هذا المتصفح وحفظ البيانات</span>
+                </label>
               </div>
 
               <button
@@ -288,6 +365,18 @@ const Login: React.FC = () => {
                     {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                   </button>
                 </div>
+              </div>
+
+              <div className="luxury-remember-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, marginTop: 4 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 9, cursor: 'pointer', fontSize: 13.5, color: 'var(--color-gray-700)', userSelect: 'none', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                    style={{ width: 17, height: 17, accentColor: 'var(--color-primary)', cursor: 'pointer', borderRadius: 4 }}
+                  />
+                  <span>تذكرني على هذا المتصفح وحفظ البيانات</span>
+                </label>
               </div>
 
               <button

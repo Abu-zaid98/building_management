@@ -7,6 +7,9 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   getAuth,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   type User,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -29,7 +32,13 @@ export const getUserRole = async (uid: string): Promise<UserRole | null> => {
 };
 
 // ===== تسجيل دخول الأدمن (Email + Password) =====
-export const loginAdmin = async (email: string, password: string): Promise<AuthUser> => {
+export const loginAdmin = async (email: string, password: string, rememberMe: boolean = true): Promise<AuthUser> => {
+  try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+  } catch (err) {
+    console.warn('Set persistence warning:', err);
+  }
+
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const role = await getUserRole(userCredential.user.uid);
 
@@ -41,16 +50,30 @@ export const loginAdmin = async (email: string, password: string): Promise<AuthU
   const adminDoc = await getDoc(doc(db, 'admins', userCredential.user.uid));
   const adminData = adminDoc.data();
 
-  return {
+  const authUser: AuthUser = {
     uid: userCredential.user.uid,
     email: userCredential.user.email!,
     role: 'admin',
     displayName: adminData?.name || 'مجلس الإدارة',
   };
+
+  try {
+    localStorage.setItem('building_mgmt_user', JSON.stringify(authUser));
+  } catch {
+    // ignore
+  }
+
+  return authUser;
 };
 
 // ===== تسجيل دخول الساكن (رقم الهوية + كلمة المرور) =====
-export const loginResident = async (idNumber: string, password: string): Promise<AuthUser> => {
+export const loginResident = async (idNumber: string, password: string, rememberMe: boolean = true): Promise<AuthUser> => {
+  try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+  } catch (err) {
+    console.warn('Set persistence warning:', err);
+  }
+
   // البريد الإلكتروني المصطنع للساكن
   const email = `${idNumber}@building-home.com`;
 
@@ -68,12 +91,20 @@ export const loginResident = async (idNumber: string, password: string): Promise
   const snapshot = await getDocs(q);
   const residentData = snapshot.docs[0]?.data();
 
-  return {
+  const authUser: AuthUser = {
     uid: userCredential.user.uid,
     email: userCredential.user.email!,
     role: 'resident',
     displayName: residentData?.fullName || idNumber,
   };
+
+  try {
+    localStorage.setItem('building_mgmt_user', JSON.stringify(authUser));
+  } catch {
+    // ignore
+  }
+
+  return authUser;
 };
 
 // ===== إنشاء حساب ساكن جديد (معزول لعدم التأثير على جلسة الأدمن) =====
@@ -228,6 +259,11 @@ export const createAdminAccount = async (
 
 // ===== تسجيل الخروج =====
 export const logout = async (): Promise<void> => {
+  try {
+    localStorage.removeItem('building_mgmt_user');
+  } catch {
+    // ignore
+  }
   await signOut(auth);
 };
 
